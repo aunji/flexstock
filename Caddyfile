@@ -1,0 +1,12 @@
+:80 {
+    root * /var/www/public
+    php_fastcgi app:9000
+    file_server
+
+    encode gzip
+
+    log {
+        output stdout
+        format console
+    }
+}
