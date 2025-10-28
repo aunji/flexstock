@@ -12,7 +12,8 @@ use Illuminate\Support\Str;
 class SaleOrderService
 {
     public function __construct(
-        protected StockService $stockService
+        protected InventoryService $inventoryService,
+        protected DocumentNumberingService $docNumbering
     ) {}
 
     /**
@@ -25,8 +26,11 @@ class SaleOrderService
         ?int $createdBy = null
     ): SaleOrder {
         return DB::transaction(function () use ($customer, $items, $attributes, $createdBy) {
-            // Generate unique transaction ID
-            $txId = 'SO-' . date('Ymd') . '-' . strtoupper(Str::random(6));
+            // Generate sequential transaction ID using DocumentNumberingService
+            $txId = $this->docNumbering->generateNumber(
+                companyId: $customer->company_id,
+                docType: 'SO'
+            );
 
             // Calculate totals
             $subtotal = 0;
@@ -98,12 +102,11 @@ class SaleOrderService
         }
 
         return DB::transaction(function () use ($saleOrder, $approvedBy) {
-            // Deduct stock for each item
+            // Deduct stock for each item using InventoryService
             foreach ($saleOrder->items as $item) {
-                $this->stockService->adjustStock(
+                $this->inventoryService->adjust(
                     product: $item->product,
-                    qtyIn: 0,
-                    qtyOut: $item->qty,
+                    qtyDelta: -$item->qty, // Negative for stock deduction
                     refType: 'SALE',
                     refId: $saleOrder->tx_id,
                     notes: "Sale Order: {$saleOrder->tx_id}"
@@ -132,10 +135,9 @@ class SaleOrderService
             // If order was confirmed, restore stock
             if ($saleOrder->status === 'Confirmed') {
                 foreach ($saleOrder->items as $item) {
-                    $this->stockService->adjustStock(
+                    $this->inventoryService->adjust(
                         product: $item->product,
-                        qtyIn: $item->qty,
-                        qtyOut: 0,
+                        qtyDelta: $item->qty, // Positive for stock restoration
                         refType: 'RETURN',
                         refId: $saleOrder->tx_id,
                         notes: "Cancelled Sale Order: {$saleOrder->tx_id}"
@@ -150,13 +152,26 @@ class SaleOrderService
     }
 
     /**
-     * Mark payment as received
+     * Mark payment as received (for cash payments or manual approval)
+     *
+     * @param SaleOrder $saleOrder
+     * @param string $paymentMethod cash|transfer
+     * @param string|null $notes
+     * @return SaleOrder
      */
-    public function markPaymentReceived(SaleOrder $saleOrder, string $paymentMethod): SaleOrder
-    {
+    public function markPaymentReceived(
+        SaleOrder $saleOrder,
+        string $paymentMethod,
+        ?string $notes = null
+    ): SaleOrder {
+        // For cash payments: immediate Received status
+        // For transfer payments: requires slip upload and approval
+        $paymentState = ($paymentMethod === 'cash') ? 'Received' : 'PendingReceipt';
+
         $saleOrder->update([
-            'payment_state' => 'Received',
+            'payment_state' => $paymentState,
             'payment_method' => $paymentMethod,
+            'payment_notes' => $notes,
         ]);
 
         return $saleOrder->fresh();

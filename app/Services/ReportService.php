@@ -11,10 +11,13 @@ class ReportService
 {
     /**
      * Get sales summary for date range
+     *
+     * IMPORTANT: Only counts Confirmed orders with Received payment
      */
     public function getSalesSummary(?string $startDate = null, ?string $endDate = null): array
     {
-        $query = SaleOrder::where('status', 'Confirmed');
+        $query = SaleOrder::where('status', 'Confirmed')
+            ->where('payment_state', 'Received'); // ONLY fully paid orders
 
         if ($startDate) {
             $query->where('created_at', '>=', Carbon::parse($startDate));
@@ -40,6 +43,8 @@ class ReportService
 
     /**
      * Get top selling products
+     *
+     * IMPORTANT: Only counts Confirmed orders with Received payment
      */
     public function getTopProducts(int $limit = 10, ?string $startDate = null, ?string $endDate = null): array
     {
@@ -47,6 +52,7 @@ class ReportService
             ->join('sale_orders', 'sale_order_items.sale_order_id', '=', 'sale_orders.id')
             ->join('products', 'sale_order_items.product_id', '=', 'products.id')
             ->where('sale_orders.status', 'Confirmed')
+            ->where('sale_orders.payment_state', 'Received') // ONLY fully paid orders
             ->where('products.company_id', app('current_company_id'));
 
         if ($startDate) {
@@ -88,10 +94,13 @@ class ReportService
 
     /**
      * Get daily sales data
+     *
+     * IMPORTANT: Only counts Confirmed orders with Received payment
      */
     public function getDailySales(?string $startDate = null, ?string $endDate = null): array
     {
-        $query = SaleOrder::where('status', 'Confirmed');
+        $query = SaleOrder::where('status', 'Confirmed')
+            ->where('payment_state', 'Received'); // ONLY fully paid orders
 
         if ($startDate) {
             $query->where('created_at', '>=', Carbon::parse($startDate));

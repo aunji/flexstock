@@ -2,8 +2,18 @@
 
 namespace App\Providers;
 
-// use Illuminate\Support\Facades\Gate;
+use App\Models\Customer;
+use App\Models\CustomFieldDef;
+use App\Models\Product;
+use App\Models\SaleOrder;
+use App\Models\StockMovement;
+use App\Policies\CustomerPolicy;
+use App\Policies\CustomFieldDefPolicy;
+use App\Policies\ProductPolicy;
+use App\Policies\SaleOrderPolicy;
+use App\Policies\StockMovementPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
+use Illuminate\Support\Facades\Gate;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -13,7 +23,11 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        //
+        Product::class => ProductPolicy::class,
+        Customer::class => CustomerPolicy::class,
+        SaleOrder::class => SaleOrderPolicy::class,
+        StockMovement::class => StockMovementPolicy::class,
+        CustomFieldDef::class => CustomFieldDefPolicy::class,
     ];
 
     /**
@@ -21,6 +35,22 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Define gates for company-level access
+        Gate::define('company.view', function ($user) {
+            // All authenticated users can view their companies
+            return $user !== null;
+        });
+
+        Gate::define('company.write', function ($user) {
+            $role = app('current_user_role');
+            // Admin and Cashier can write
+            return in_array($role, ['admin', 'cashier']);
+        });
+
+        Gate::define('company.admin', function ($user) {
+            $role = app('current_user_role');
+            // Only Admin has admin access
+            return $role === 'admin';
+        });
     }
 }
