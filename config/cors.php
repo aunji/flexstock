@@ -17,18 +17,20 @@ return [
 
     'paths' => ['api/*', 'sanctum/csrf-cookie'],
 
-    'allowed_methods' => ['*'],
+    'allowed_methods' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 
-    'allowed_origins' => ['*'],
+    // For production: specify allowed origins explicitly
+    // 'allowed_origins' => ['https://app.example.com', 'https://admin.example.com'],
+    'allowed_origins' => env('CORS_ALLOWED_ORIGINS', '*') === '*' ? ['*'] : explode(',', env('CORS_ALLOWED_ORIGINS', '*')),
 
     'allowed_origins_patterns' => [],
 
-    'allowed_headers' => ['*'],
+    'allowed_headers' => ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['X-RateLimit-Limit', 'X-RateLimit-Remaining'],
 
-    'max_age' => 0,
+    'max_age' => 3600, // 1 hour cache for preflight requests
 
-    'supports_credentials' => false,
+    'supports_credentials' => true, // Required for Sanctum authentication
 
 ];
